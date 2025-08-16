@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(100)
+  email        String   @unique @db.VarChar(100)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  role         Role     @default(TENANT)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  properties Property[] @relation("LandlordProperties")
+  bookings   Booking[]  @relation("TenantBookings")
+  reviews    Review[]   @relation("TenantReviews")
+
+  @@map("users")
+}
+
+model Property {
+  id            Int      @id @default(autoincrement())
+  landlordId    Int      @map("landlord_id")
+  title         String   @db.VarChar(200)
+  description   String   @db.Text
+  address       String   @db.VarChar(255)
+  city          String   @db.VarChar(100)
+  postalCode    String   @map("postal_code") @db.VarChar(20)
+  rent          Decimal  @db.Decimal(10, 2)
+  availableFrom DateTime @map("available_from") @db.Date
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  landlord User            @relation("LandlordProperties", fields: [landlordId], references: [id], onDelete: Cascade)
+  images   PropertyImage[]
+  bookings Booking[]
+  reviews  Review[]
+
+  @@map("properties")
+}
+
+model PropertyImage {
+  id         Int    @id @default(autoincrement())
+  propertyId Int    @map("property_id")
+  imageUrl   String @map("image_url") @db.VarChar(255)
+
+  // Relations
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_images")
+}
+
+model Booking {
+  id          Int           @id @default(autoincrement())
+  propertyId  Int           @map("property_id")
+  tenantId    Int           @map("tenant_id")
+  status      BookingStatus @default(PENDING)
+  bookingDate DateTime      @default(now()) @map("booking_date")
+
+  // Relations
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant   User     @relation("TenantBookings", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("bookings")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  propertyId Int      @map("property_id")
+  tenantId   Int      @map("tenant_id")
+  rating     Int      @db.TinyInt
+  reviewText String?  @map("review_text") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant   User     @relation("TenantReviews", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+enum Role {
+  TENANT
+  LANDLORD
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
